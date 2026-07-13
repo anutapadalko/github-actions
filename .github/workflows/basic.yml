@@ -1,9 +1,12 @@
-name: Unit Testing Workflow
+name: Unit Testing and Build Workflow
 
 on:
   pull_request:
     branches:
       - develop
+
+permissions:
+  contents: write
 
 jobs:
   test:
@@ -30,3 +33,32 @@ jobs:
         with:
           name: coverage-report
           path: htmlcov/
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Build step
+        run: echo "Building application..."
+
+      - name: Update README with Badge
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BADGE="[![CI Pipeline](https://github.com/${{ github.repository }}/actions/workflows/basic.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/basic.yml)"
+          
+          if ! grep -q "badge.svg" README.md; then
+            echo -e "$BADGE\n\n$(cat README.md)" > README.md
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git add README.md
+            git commit -m "docs: add build status badge"
+            git push origin HEAD:${{ github.head_ref }}
+          else
+            echo "Badge already exists."
+          fi
